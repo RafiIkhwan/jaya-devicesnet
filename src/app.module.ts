@@ -18,6 +18,7 @@ import { TelemetryModule } from './telemetry/telemetry.module';
 import { ServiceConnectorModule } from './service-connector/service-connector.module';
 import { MqttAccountModule } from './mqtt-account/mqtt-account.module';
 import { MqttAclModule } from './mqtt-acl/mqtt-acl.module';
+import { TimescaleModule } from './timescaledb/timescale.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { MqttAclModule } from './mqtt-acl/mqtt-acl.module';
     ServiceConnectorModule,
     MqttAccountModule,
     MqttAclModule,
+    TimescaleModule
   ],
   controllers: [AppController],
   providers: [
