@@ -7,6 +7,7 @@ import { TenantsService } from 'src/tenants/tenants.service';
 import { GatewaysService } from 'src/gateways/gateways.service';
 import { GatewaysEntity } from 'src/gateways/entity/gateways.entity';
 import { NodesEntity } from 'src/nodes/entity/node.entity';
+import { TimescaleProvider } from 'src/timescaledb/timescale.provider';
 
 Injectable();
 export class TelemetryService {
@@ -18,6 +19,7 @@ export class TelemetryService {
     private nodesService: NodesService,
     private tenantsService: TenantsService,
     private gatewaysService: GatewaysService,
+    private timescaleProvider: TimescaleProvider,
   ) {
     const org = this.configService.get('INFLUXDB_ORG_ID');
     const queryApi = this.influx.getQueryApi(org);
@@ -34,67 +36,55 @@ export class TelemetryService {
       fields !== undefined
         ? fields
             .split(',')
-            .map((x) => `r["_field"] == "${x}"`)
-            .join(' or ')
+            .map((x) => `field = '${x}'`)
+            .join(' OR ')
         : '';
-
+  
     const filterTags: Array<string> = [];
     for (const key in tags) {
       if (Object.prototype.hasOwnProperty.call(tags, key)) {
-        filterTags.push(`r["${key}"] == "${tags[key]}"`);
+        filterTags.push(`tags->>'${key}' = '${tags[key]}'`);
       }
     }
 
-    const filterTagsFlux =
-      filterTags.length !== 0
-        ? `|> filter(fn: (r) => ${filterTags.join(' or ')})`
-        : '';
-    const filterFieldsFlux =
-      filterFields === '' ? '' : `|> filter(fn: (r) => ${filterFields})`;
+    const filterTagsSQL =
+      filterTags.length !== 0 ? `AND (${filterTags.join(' OR ')})` : '';
+    const filterFieldsSQL =
+      filterFields === '' ? '' : `AND (${filterFields})`;
 
-    const fluxQuery = `
-    from(bucket: "${tenant?.name}")
-    |> range(start: -30d)
-    |> filter(fn: (r) => r["_measurement"] == "${type}")
-    ${filterTagsFlux}
-    |> filter(fn: (r) => r["device"] == "${serialNumber}")
-    ${filterFieldsFlux}
-    |> last()
-    |> group(columns: ["device","_field"], mode:"by")  
-    |> sort(columns: ["_time"], desc: false)
-    |> last()
-    |> drop(columns: ["_start", "_stop"])`;
+    const sqlQuery = `
+    SELECT * FROM device_telemetry
+    WHERE tenant_id = '${tenant?.id}'
+    AND measurement = '${type}'
+    AND device_id = '${serialNumber}'
+    ${filterTagsSQL}
+    ${filterFieldsSQL}
+    ORDER BY time DESC
+    LIMIT 1`;
 
-    const resultQuery = await this.queryApi.collectRows(fluxQuery);
+    const resultQuery = await this.timescaleProvider.query(sqlQuery);
     const obj = {};
     resultQuery.forEach((data: any) => {
-      obj[data._field] = data;
+      obj[data.field] = data;
     });
 
-    const statusFlux = `
-    from(bucket: "${tenant?.name}")
-    |> range(start: 0)
-    |> filter(fn: (r) => r["_measurement"] == "deviceshealth")
-    |> filter(fn: (r) => r["device"] == "${serialNumber}")
-    |> last()
-    |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
-    |> group(columns: ["device"])
-    |> sort(columns: ["_time"], desc: false)
-    |> last(column: "device")
-    |> drop(columns: ["_start", "_stop"])`;
-    const resultStatus = await this.queryApi.collectRows(statusFlux);
+    const statusSQL = `
+    SELECT * FROM device_health
+    WHERE tenant_id = '${tenant?.id}'
+    AND device_id = '${serialNumber}'
+    ORDER BY time DESC
+    LIMIT 1`;
+    const resultStatus = await this.timescaleProvider.query(statusSQL);
     const timeNow = new Date().getTime();
-    const dataOnline = resultStatus.map(
-      ({ result: _x, table: _y, ...data }) => {
-        const point = data;
-        const diff =
-          (timeNow - new Date(point._time as string).getTime()) / 1000;
-        point['status'] = diff < 60 ? 'ONLINE' : 'OFFLINE';
-        point['alias'] = device.alias;
-        return point;
-      },
-    );
-    return { telemetry: obj, statusDevice: dataOnline[0] };
+    const dataOnline = resultStatus.rows?.map((data: any) => {
+      const point = data;
+      const diff =
+        (timeNow - new Date(point.time as string).getTime()) / 1000;
+      point['status'] = diff < 60 ? 'ONLINE' : 'OFFLINE';
+      point['alias'] = device.alias;
+      return point;
+    });
+    return { telemetry: obj, statusDevice: dataOnline?.[0] };
   }
 
   async findHistory(query: any, deviceNumber: string) {

@@ -9,6 +9,7 @@ import { TenantsModule } from 'src/tenants/tenants.module';
 import { GatewaysModule } from 'src/gateways/gateways.module';
 import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
 import { ApiKeysGuard } from 'src/api-keys/guards/api-keys.guard';
+import { TimescaleProvider } from 'src/timescaledb/timescale.provider';
 
 @Module({
   imports: [
@@ -20,6 +21,6 @@ import { ApiKeysGuard } from 'src/api-keys/guards/api-keys.guard';
     GatewaysModule,
   ],
   controllers: [TelemetryController],
-  providers: [TelemetryService, AccessTokenGuard, ApiKeysGuard],
+  providers: [TelemetryService, AccessTokenGuard, ApiKeysGuard, TimescaleProvider],
 })
 export class TelemetryModule {}

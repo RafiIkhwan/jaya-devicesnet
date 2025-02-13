@@ -62,14 +62,14 @@ export class TimescaleService {
         -- Seed device telemetry data
         INSERT INTO device_telemetry (time, device_id, measurement, field, value, tenant_id, tags)
         VALUES 
-          (NOW(), 'device1', 'temperature', 'temp', 23.5, '00000000-0000-0000-0000-000000000001', '{"location": "office"}'),
-          (NOW(), 'device2', 'humidity', 'hum', 45.2, '00000000-0000-0000-0000-000000000002', '{"location": "warehouse"}');
+          (NOW(), 'MMA2CBCBB0CF8B8', 'QC', 'temp', 23.5, '07cc4859-64a1-45a7-bcd4-ba0d222708d5', '{"location": "office"}'),
+          (NOW(), 'MMACC7B5CA69334', 'QC', 'hum', 45.2, '00000000-0000-0000-0000-000000000002', '{"location": "warehouse"}');
 
         -- Seed device health data
         INSERT INTO device_health (time, device_id, uptime, status, tenant_id)
         VALUES 
-          (NOW(), 'device1', 123456, 'online', '00000000-0000-0000-0000-000000000001'),
-          (NOW(), 'device2', 654321, 'offline', '00000000-0000-0000-0000-000000000002');
+          (NOW(), 'MMA2CBCBB0CF8B8  ', 123456, 'online', '07cc4859-64a1-45a7-bcd4-ba0d222708d5'),
+          (NOW(), 'MMACC7B5CA69334', 654321, 'offline', '00000000-0000-0000-0000-000000000002');
       `);
 
       this.logger.log('TimescaleDB data seeded successfully');
