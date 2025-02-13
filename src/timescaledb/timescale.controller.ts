@@ -16,4 +16,10 @@ export class TimescaleController {
     await this.timescaleService.createSchema();
     return { message: 'Migration completed' };
   }
+
+  @Post('seed')
+  async seedData() {
+    await this.timescaleService.seedData();
+    return { message: 'Data seeded' };
+  }
 }
