@@ -13,7 +13,7 @@ export class TimescaleController {
 
   @Post('migrate')
   async migrateTenant() {
-    await this.timescaleService.migrateAllTenants();
+    await this.timescaleService.createSchema();
     return { message: 'Migration completed' };
   }
 }
