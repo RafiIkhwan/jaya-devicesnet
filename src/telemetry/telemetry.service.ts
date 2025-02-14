@@ -53,14 +53,29 @@ export class TelemetryService {
       filterFields === '' ? '' : `AND (${filterFields})`;
 
     const sqlQuery = `
-    SELECT * FROM device_telemetry
-    WHERE tenant_id = '${tenant?.id}'
-    AND measurement = '${type}'
-    AND device_id = '${serialNumber}'
-    ${filterTagsSQL}
-    ${filterFieldsSQL}
-    ORDER BY time DESC
-    LIMIT 1`;
+    WITH fields AS (
+      SELECT DISTINCT field 
+      FROM device_telemetry 
+      WHERE measurement = '${type}'
+    )
+    SELECT 
+      time_bucket('30 days', dt.time) AS bucket,
+      dt.device_id,
+      dt.field,
+      dt.value
+    FROM fields f
+    CROSS JOIN LATERAL (
+      SELECT time, device_id, field, value
+      FROM device_telemetry
+      WHERE tenant_id = '${tenant?.id}'
+        AND measurement = '${type}'
+        AND device_id = '${serialNumber}'
+        AND field = f.field
+        ${filterTagsSQL}
+        ${filterFieldsSQL}
+      ORDER BY time DESC
+      LIMIT 1
+    ) dt;`;
 
     const resultQuery = await this.timescaleProvider.query(sqlQuery);
     const obj = {};
@@ -76,7 +91,7 @@ export class TelemetryService {
     LIMIT 1`;
     const resultStatus = await this.timescaleProvider.query(statusSQL);
     const timeNow = new Date().getTime();
-    const dataOnline = resultStatus.rows?.map((data: any) => {
+    const dataOnline = resultStatus?.map((data: any) => {
       const point = data;
       const diff =
         (timeNow - new Date(point.time as string).getTime()) / 1000;
